@@ -173,7 +173,6 @@ class Conv2DDDQNAgent(nn.Module):
 
 
     def forward(self, x, telem):
-        print(x.shape)
         B, T, C, H, W = x.shape
         x = torch.reshape(x,(B * T, C, H, W))
         x = f.relu(self.bn1(self.conv2d_1(x)))
@@ -255,7 +254,7 @@ class ReplayBuffer:
         return len(self.buffer)
     
 class DDQNAgent:
-    def __init__(self, state_size, action_size, seed, learning_rate=1e-3, capacity=10000, discount_factor=0.99, tau=1e-3, update_every=4, batch_size=64):
+    def __init__(self, state_size, action_size, seed, learning_rate=1e-3, capacity=10000, discount_factor=0.99, tau=1e-3, update_every=8, batch_size=4):
         self.state_size = state_size
         self.action_size = action_size
         self.seed = np.random.seed(seed)
@@ -304,13 +303,12 @@ class DDQNAgent:
         Q_targets = rewards + self.discount_factor * (Q_targets_next * (1 - dones))
 
         Q_expected = self.qnetwork_local(images, states).gather(1, actions.view(-1, 1))
-
         loss = f.mse_loss(Q_expected, Q_targets)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
         self.soft_update(self.qnetwork_local, self.qnetwork_target)
+        
 
     def update_target_network(self):
         for target_param, local_param in zip(self.qnetwork_target.parameters(), self.qnetwork_local.parameters()):
@@ -400,6 +398,7 @@ def read_game_state():
 
 # this is the function that actually plays the game and records the states and all for training
 def run_episode(model, action_stats, greedy=False):
+    print('here')
     keyboard.press(Key.delete)
     keyboard.release(Key.delete)
     keyboard.press(Key.enter)
@@ -485,14 +484,14 @@ def run_episode(model, action_stats, greedy=False):
         # transitions_since_last_cp.append(transition)
 
         # if a new cp is reached give a reward to the states that made it get to the new cp divided by how many states
-        # if state['cp'] > cp_num:
+        if state['cp'] > cp_num:
         #     cp_reward = min(100.0 / len(transitions_since_last_cp), 5.0)
         #     for t in transitions_since_last_cp:
         #         t['reward'] += cp_reward
         #     episode_data.extend(transitions_since_last_cp)
         #     transitions_since_last_cp = []
-        #     cp_num = state['cp']
-        #     cp_time = time.time()
+            cp_num = state['cp']
+            cp_time = time.time()
 
         # completes the action determined above
         
