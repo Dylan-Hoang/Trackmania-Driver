@@ -323,6 +323,7 @@ class DDQNAgent:
 def compute_reward(prev_state, current_state, alpha=1.0): # move
     speed = current_state['speed'] # in m/s
     prev_speed = prev_state['speed'] # in m/s
+    # print(speed, prev_speed)
     # initiates reward
     reward = 0.0
 
@@ -350,7 +351,7 @@ def compute_reward(prev_state, current_state, alpha=1.0): # move
     # if decelerating and speed is positive give penalty
     if (delta_spd) < -0.05 and speed > 0.0:
         reward -= 1.0 * abs(delta_spd)
-
+    # print(reward)
     return reward
 
 
@@ -397,8 +398,7 @@ def read_game_state():
 
 
 # this is the function that actually plays the game and records the states and all for training
-def run_episode(model, action_stats, greedy=False):
-    print('here')
+def run_episode(model, action_stats, epsilon):
     keyboard.press(Key.delete)
     keyboard.release(Key.delete)
     keyboard.press(Key.enter)
@@ -411,11 +411,12 @@ def run_episode(model, action_stats, greedy=False):
     transitions_since_last_cp = []
 
     with state_lock:
-        prev_state = latest_state.copy()
-    prev_action = 8
-    prev_stacked = np.stack([f[0] for f in frame_buffer], axis=0)
-    prev_stacked = np.expand_dims(prev_stacked, 1)
-    prev_stacked = np.expand_dims(prev_stacked, 0)
+        state = latest_state.copy()
+    action = 8
+    reward = 0
+    stacked = np.stack([f[0] for f in frame_buffer], axis=0)
+    stacked = np.expand_dims(stacked, 1)
+    stacked = np.expand_dims(stacked, 0)
     # to cut the system short if it doesn't make it to a new cp
     cp_time = time.time()
 
@@ -429,29 +430,29 @@ def run_episode(model, action_stats, greedy=False):
     end_count = 0
 
     score = 0
-    while (time.time() - start_time) < 240 and (time.time() - cp_time) < 30 and stuck_count < 60 and end_count < 15:
+    while (time.time() - start_time) < 240 and (time.time() - cp_time) < 30 and stuck_count < 30 and end_count < 15:
         # waits for the map to actually start before giving or storing commands
         if time.time() - start_time < 2:
             cp_time = time.time() + 2
             time.sleep(2)
         
         with state_lock:
-            state = latest_state.copy()
-            stacked = np.stack([f[0] for f in frame_buffer], axis=0)
+            next_state = latest_state.copy()
+            next_stacked = np.stack([f[0] for f in frame_buffer], axis=0)
         
-        if state['ts'] == prev_state['ts']:
+        if next_state['ts'] == state['ts']:
             time.sleep(1.0/60.0)
             end_count += 1
             continue
         else:
             end_count = 0
         
+        next_state_vec = np.array([[next_state['speed'], next_state['x'], next_state['y'], next_state['z'], next_state['cp']]])
         state_vec = np.array([[state['speed'], state['x'], state['y'], state['z'], state['cp']]])
-        prev_state_vec = np.array([[prev_state['speed'], prev_state['x'], prev_state['y'], prev_state['z'], prev_state['cp']]])
-        stacked = np.expand_dims(stacked, 1)
-        stacked = np.expand_dims(stacked, 0)
+        next_stacked = np.expand_dims(next_stacked, 1)
+        next_stacked = np.expand_dims(next_stacked, 0)
 
-        if abs(state['x'] - prev_state['x']) < 0.03 and abs(state['z'] - prev_state['z']) < 0.03:
+        if abs(next_state['x'] - state['x']) < 0.03 and abs(next_state['z'] - state['z']) < 0.03:
             stuck_count += 1
         else:
             stuck_count = 0
@@ -459,20 +460,22 @@ def run_episode(model, action_stats, greedy=False):
         # runs the information into the model to get outputs
         # with torch.no_grad():
         #     action = model(torch.from_numpy(stacked).to(device), torch.tensor(state_vec, dtype=torch.float32).to(device))
-        action = model.act(stacked, state_vec)
-        reward = compute_reward(prev_state, state, cp_time)
+        next_action = model.act(next_stacked, next_state_vec, epsilon)
+        next_reward = compute_reward(state, next_state)
 
-        model.step(prev_state_vec, stacked, prev_action, reward, prev_stacked, state_vec, 0)
+        if stuck_count > 10:
+            next_reward -= 5.0
+        # might need to use prev reward
+        model.step(state_vec, stacked, action, reward, next_stacked, next_state_vec, 0)
 
         
-        if stuck_count > 30:
-            reward -= 5.0
+        
 
-        score += reward
-
-        prev_state = state.copy()
-        prev_action = action.copy()
-        prev_stacked = stacked.copy()
+        score += next_reward
+        reward = next_reward
+        state = next_state.copy()
+        action = next_action
+        stacked = next_stacked.copy()
         # transition = {
         #     'state': state_vec[0],
         #     'image': stacked,
@@ -484,13 +487,13 @@ def run_episode(model, action_stats, greedy=False):
         # transitions_since_last_cp.append(transition)
 
         # if a new cp is reached give a reward to the states that made it get to the new cp divided by how many states
-        if state['cp'] > cp_num:
+        if next_state['cp'] > cp_num:
         #     cp_reward = min(100.0 / len(transitions_since_last_cp), 5.0)
         #     for t in transitions_since_last_cp:
         #         t['reward'] += cp_reward
         #     episode_data.extend(transitions_since_last_cp)
         #     transitions_since_last_cp = []
-            cp_num = state['cp']
+            cp_num = next_state['cp']
             cp_time = time.time()
 
         # completes the action determined above
@@ -579,10 +582,10 @@ def update_best_episode(episode_data, cp_num, cur_reward):
         print(f"New best episode: CP {best_cp}, Reward {best_reward:.2f}")
 
 # compute five runs and then send that to a pkl file for the training to run out of
-def inference(model,action_stats): 
+def inference(model,action_stats, epsilon): 
     # collected_data = []
     for i in range(1):
-        data, cp = run_episode(model, action_stats, greedy=False)
+        data, cp = run_episode(model, action_stats, epsilon)
     #     if not data:
     #         print(f"Episode {i} ended in wall, skipping")
     #         continue
@@ -616,18 +619,19 @@ def main():
 
     cap_thread = Thread(target=capture_loop)
     cap_thread.start()
-
+    epsilon = 0.9
     for i in range(1000):
-        print(i)
+        print(i, epsilon)
         action_stats = defaultdict(lambda: {'count': 0, 'reward': 0.0})
         shutdown_event.set()
-        inf = Thread(target=inference, args=(model, action_stats))
+        inf = Thread(target=inference, args=(model, action_stats, epsilon))
         inf.start()
         inf.join()
         for (move, turn), stats in action_stats.items():
             print(f"Action ({move}, {turn}): Count = {stats['count']}, Total Reward = {stats['reward']/stats['count']:.2f}")
 
         shutdown_event.clear()
+        epsilon = max(epsilon - 0.004, 0.05)
         # model = train(model, optimizer).to(device)
 
     end_event.set()
