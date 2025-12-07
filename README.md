@@ -1,37 +1,31 @@
-# Trackmania Reinforcement Learning Variations
+# Install requirements
 
-This repository showcases a series of reinforcement learning experiments and model architectures developed to control a car in Trackmania using computer vision and game telemetry. These models leverage either screen captures or simulated LIDAR data, combined with in-game telemetry, to learn driving behaviors through reward-based optimization.
 
-## Overview of the main model files
-Detailed descriptions and inline documentation are available in each file under /scripts/python/.
-Additional insights, challenges faced, and example videos can be found in EXPERIMENTS.md.
-Each of the below experiment entries links to the relevant section within EXPERIMENTS.md, and the filename links to the python project file.
+First Download Trackmania 2020 either through Steam, Epic games, or Ubisoft
 
-The Primary experiments are listed below, ordered from most recent to earliest in development:
+Fair warning you will have to buy the yearly subscription for a year to be able to run any plugins like ours.
 
-1. **[LIDAR with Gaussian Policy](/EXPERIMENTS.md#lidar-with-gaussian-policy--lidargausspy):  [(lidarGauss.py)](/Scripts/Python/lidarGauss.py)**
-The most recent experiment in the series uses “LIDAR” with Gaussian policy and is built using PyTorch and a Gaussian policy. The output of this model is three values that are sent through the tanh function to return a real number on the scale of [-1,1].
+Next download OpenPlanetNext (plugins service) https://openplanet.dev/download/get?id=302
 
-2. **[LIDAR with Softmax Policy](/EXPERIMENTS.md#lidar-with-softmax-policy--lidarpy):  [(lidar.py)](/Scripts/Python/lidar.py)**
-An experiment using “LIDAR” with a PyTorch model that uses discrete softmax outputs for the two sets of three values represented by movement and turning.
 
-3. **[CNN with PyTorch](/EXPERIMENTS.md#cnn-with-pytorch--cnntorchpy):  [(cnnTorch.py)](/Scripts/Python/cnnTorch.py)**
-A PyTorch convolutional neural network that combines grayscale screenshots and telemetry data to predict actions.
+Download our zip folder and extract it.
 
-4. **[CNN with TensorFlow](/EXPERIMENTS.md#cnn-with-tensorflow--cnnpy):  [(cnn.py)](/Scripts/Python/cnn.py)**
-A TensorFlow model that uses 2D Convolutional Long Short Term Memory (ConvLSTM2D) for the CNN layers.
+Next you will open file explorer and go to C:/Users/Username/OpenPlanetNext/Plugins and make a folder. You will want to put the main.as and info.toml into that folder.
 
-5. **[Basic DNN](/EXPERIMENTS.md#basic-dnn--gamestatesonlypy):  [(gameStateOnly.py)](/Scripts/Python/gameStateOnly.py)**
-A simple deep neural network built with TensorFlow that relies solely on telemetry inputs, without any visual information.
+Go back to the OpenPlanetNext folder and open the scripts folder and make a subfolder. Place the requirements.txt cnnTorch.py and launch.bat in that folder.
 
-## Requirements for installation
+Then once you open the game if you press F3 you should see a bar at the top of the game that says OpenPlanet. Next you will want to go to pluginManager and download “MLFeed: Race Data” and “MLHook: Manialink Hook & Event Inspector”.
 
-To install required dependencies:
+Once those are installed you will want to run the bat script and wait until it says listening in the terminal. At this point you can click on the openplanet tab hover over signature mode and select developer mode. Lastly, you can go into a map preferably a flat map with borders and once in the game open the Plugins menu hover over GregBot and press Start Sending. Every time you rerun the code you need to stop and start the plugin as the code needs to be running before the plugin to actually connect.
 
-```bash
-pip install -r requirements.txt
 
-```
+
+
+
+
+
+
+
 
 ## Acknowledgement
 
